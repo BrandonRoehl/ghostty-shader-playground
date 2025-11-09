@@ -41,7 +41,7 @@ vec2 norm(vec2 value, float isPosition) {
 }
 
 float antialising(float distance) {
-    return 1. - smoothstep(0., norm(vec2(2., 2.), 0.).x, distance);
+    return 1. - smoothstep(0., norm(vec2(1., 1.), 0.).x, distance);
 }
 
 float determineStartVertexFactor(vec2 a, vec2 b) {
@@ -64,12 +64,15 @@ vec4 saturate(vec4 color, float factor) {
     return mix(vec4(gray), color, factor);
 }
 
-const float OPACITY = 0.6;
-const float DURATION = 0.3; //IN SECONDS
+const float OPACITY = 1.0;
+const float DURATION = 1.0; //IN SECONDS
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord)
-{
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
+    float progress = (iTime - iTimeCursorChange) / DURATION;
+    if ((iTime - iTimeCursorChange) <= (iTimeDelta * 2) || progress >= 1.0) {
+        return;
+    }
     // Normalization for fragCoord to a space of -1 to 1;
     vec2 vu = norm(fragCoord, 1.);
     vec2 offsetFactor = vec2(-.5, 0.5);
@@ -93,7 +96,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
     float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
 
-    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
     float easedProgress = ease(progress);
     // Distance between cursors determine the total length of the parallelogram;
     vec2 centerCC = getRectangleCenter(currentCursor);
@@ -103,11 +105,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec4 newColor = vec4(fragColor);
 
     vec4 trail = iCurrentCursorColor;
-    trail = saturate(trail, 2.5);
     // Draw trail
+    // newColor = mix(newColor, trail, step(sdfTrail, 0.));
     newColor = mix(newColor, trail, antialising(sdfTrail));
     // Draw current cursor
-    newColor = mix(newColor, trail, antialising(sdfCurrentCursor));
+    // newColor = mix(newColor, trail, antialising(sdfCurrentCursor));
     newColor = mix(newColor, fragColor, step(sdfCurrentCursor, 0.));
     // newColor = mix(fragColor, newColor, OPACITY);
     fragColor = mix(fragColor, newColor, step(sdfCurrentCursor, easedProgress * lineLength));
