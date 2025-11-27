@@ -56,21 +56,18 @@ float determineStartVertexFactor(vec2 a, vec2 b) {
 vec2 getRectangleCenter(vec4 rectangle) {
     return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
 }
-vec4 saturate(vec4 color, float factor) {
-    float gray = dot(color, vec4(0.299, 0.587, 0.114, 0.)); // luminance
-    return mix(vec4(gray), color, factor);
-}
 
 float ease(float x) {
     return pow(1.0 - x, 3.0);
 }
 
 // https://cubic-bezier.com/#.25,.09,.3,1
-const float P1X = 0.25;
-const float P1Y = 0.09;
-const float P2X = 0.3;
+const float P1X = 0.0;
+const float P1Y = 0.5;
+const float P2X = 0.5;
 const float P2Y = 1.0;
-const float DURATION = 0.15; //IN SECONDS
+const float DURATION = 1.0; //IN SECONDS
+// const float DURATION = 0.15; //IN SECONDS
 
 float cubicBezier(float t) {
     // P0 is (0,0) and P3 is (1,1) for easing functions
@@ -92,10 +89,11 @@ float cubicBezier(float t) {
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
-    float progress = (iTime - iTimeCursorChange) / DURATION;
-    if (progress >= 1.0) {
-        return;
-    }
+    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
+    float easedProgress = cubicBezier(progress);
+    // if (progress >= 1.0) {
+    //     return;
+    // }
     // Normalization for fragCoord to a space of -1 to 1;
     vec2 vu = norm(fragCoord, 1.);
     vec2 offsetFactor = vec2(-.5, 0.5);
@@ -119,7 +117,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
     float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
 
-    float easedProgress = cubicBezier(progress);
     // Distance between cursors determine the total length of the parallelogram;
     vec2 centerCC = getRectangleCenter(currentCursor);
     vec2 centerCP = getRectangleCenter(previousCursor);
