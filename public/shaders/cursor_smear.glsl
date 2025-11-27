@@ -56,21 +56,44 @@ float determineStartVertexFactor(vec2 a, vec2 b) {
 vec2 getRectangleCenter(vec4 rectangle) {
     return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
 }
-float ease(float x) {
-    return pow(1.0 - x, 3.0);
-}
 vec4 saturate(vec4 color, float factor) {
     float gray = dot(color, vec4(0.299, 0.587, 0.114, 0.)); // luminance
     return mix(vec4(gray), color, factor);
 }
 
-const float OPACITY = 1.0;
-const float DURATION = 1.0; //IN SECONDS
+float ease(float x) {
+    return pow(1.0 - x, 3.0);
+}
+
+// https://cubic-bezier.com/#.25,.09,.3,1
+const float P1X = 0.25;
+const float P1Y = 0.09;
+const float P2X = 0.3;
+const float P2Y = 1.0;
+const float DURATION = 0.15; //IN SECONDS
+
+float cubicBezier(float t) {
+    // P0 is (0,0) and P3 is (1,1) for easing functions
+    vec2 P0 = vec2(0.0, 0.0);
+    vec2 P1 = vec2(P1X, P1Y);
+    vec2 P2 = vec2(P2X, P2Y);
+    vec2 P3 = vec2(1.0, 1.0);
+
+    // Calculate the point on the Bezier curve
+    vec2 point = 
+        pow(1.0 - t, 3.0) * P0 +
+        3.0 * pow(1.0 - t, 2.0) * t * P1 +
+        3.0 * (1.0 - t) * pow(t, 2.0) * P2 +
+        pow(t, 3.0) * P3;
+
+    // We are interested in the y-component for the eased value
+    return 1.0 - point.y;
+}
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
     float progress = (iTime - iTimeCursorChange) / DURATION;
-    if ((iTime - iTimeCursorChange) <= (iTimeDelta * 2) || progress >= 1.0) {
+    if (progress >= 1.0) {
         return;
     }
     // Normalization for fragCoord to a space of -1 to 1;
@@ -96,7 +119,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
     float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
 
-    float easedProgress = ease(progress);
+    float easedProgress = cubicBezier(progress);
     // Distance between cursors determine the total length of the parallelogram;
     vec2 centerCC = getRectangleCenter(currentCursor);
     vec2 centerCP = getRectangleCenter(previousCursor);
@@ -111,6 +134,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // Draw current cursor
     // newColor = mix(newColor, trail, antialising(sdfCurrentCursor));
     newColor = mix(newColor, fragColor, step(sdfCurrentCursor, 0.));
-    // newColor = mix(fragColor, newColor, OPACITY);
     fragColor = mix(fragColor, newColor, step(sdfCurrentCursor, easedProgress * lineLength));
 }
